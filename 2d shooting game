@@ -1,0 +1,279 @@
+import pygame
+import random
+pygame.init()
+
+#SCREEN
+SCREEN = WIDTH,HEIGHT = 800,1300
+
+tile_size = 100
+
+#WINDOW
+win = pygame.display.set_mode(SCREEN)
+
+#movement 
+move_left = False
+move_right = False
+move_up = False
+move_down = False
+
+l = pygame.image.load('/storage/emulated/0/Download/l.png')
+r = pygame.image.load('/storage/emulated/0/Download/r.png')
+d = pygame.image.load('/storage/emulated/0/Download/d.png')
+u = pygame.image.load('/storage/emulated/0/Download/u.png')
+f = pygame.image.load('/storage/emulated/0/Download/fire.png')
+
+enemy_frequency = 1000
+start_time = pygame.time.get_ticks()
+
+
+class Bullet(pygame.sprite.Sprite):
+  def __init__(self,x,y):
+    super(Bullet,self).__init__()
+    self.image = pygame.image.load('/storage/emulated/0/Download/platformer/tiles/tile_0044.png')
+    self.image = pygame.transform.scale(self.image,(40,40))
+    self.rect = self.image.get_rect()
+    self.rect.x = x
+    self.rect.y = y
+    
+  def update(self,p):
+    if p.direction == 1:
+      self.rect.x += 40
+    elif p.direction == -1:
+      self.rect.x -= 40
+     
+    #kill bullets
+    if self.rect.left >= 650:
+      self.kill()
+    if self.rect.right <= 0:
+      self.kill()
+  def draw(self,win):
+    win.blit(self.image,self.rect)
+  
+
+class Enemy(pygame.sprite.Sprite):
+  def __init__(self,x,y,type):
+    super(Enemy,self).__init__()
+    if type == 1:
+      img = pygame.image.load('/storage/emulated/0/Download/platformer/tiles/tile_0051.png')
+      self.image = pygame.transform.scale(img,(50,50))
+      
+    if type == 2:
+      img = pygame.image.load('/storage/emulated/0/Download/platformer/tiles/tile_0053.png')
+      self.image = pygame.transform.scale(img,(50,50))
+      
+    if type == 3:
+      img = pygame.image.load('/storage/emulated/0/Download/platformer/tiles/tile_0055.png')
+      self.image = pygame.transform.scale(img,(50,50))
+      
+    self.rect = self.image.get_rect()
+    self.rect.x = x
+    self.rect.y = y
+    
+  def update(self,p):
+    if self.rect.centerx > p.rect.centerx:
+      self.rect.x -= 1
+    if self.rect.centerx < p.rect.centerx:
+      self.rect.x += 1
+    if self.rect.centery > p.rect.centery:
+      self.rect.y -= 1
+    if self.rect.centery < p.rect.centery:
+      self.rect.y += 1
+     
+  def draw(self,win):
+    win.blit(self.image,self.rect)
+  
+#button class
+class Button():
+	def __init__(self, x, y, image, scale):
+		width = image.get_width()
+		height = image.get_height()
+		self.image = pygame.transform.scale(image, (int(width * scale), int(height * scale)))
+		self.rect = self.image.get_rect()
+		self.rect.topleft = (x, y)
+		
+
+	def draw(self, surface):
+		action = False
+		#get mouse position
+		pos = pygame.mouse.get_pos()
+
+		#check mouseover and clicked conditions
+		if self.rect.collidepoint(pos):
+			if pygame.mouse.get_pressed()[0] == 1:
+				action = True
+
+		
+
+		#draw button on screen
+		surface.blit(self.image, (self.rect.x, self.rect.y))
+
+		return action
+
+#WORLD
+class World():
+  def __init__(self,data):
+    self.tile_list = []
+    
+    
+    #load images
+    dirt_img = pygame.image.load('/storage/emulated/0/Download/platformer/tiles/tile_0000.png')
+    
+    
+    row_count = 0
+    for row in data:
+      col_count = 0
+      for tile in row:
+        if tile == 1:
+          
+          img = pygame.transform.scale(dirt_img,(tile_size,tile_size))
+          img_rect = img.get_rect()
+          img_rect.x = col_count*tile_size
+          img_rect.y = row_count*tile_size
+          tile = (img,img_rect)
+          self.tile_list.append(tile)
+          
+          
+        col_count += 1
+      row_count += 1
+      
+      
+  def draw(self):
+    for tile in self.tile_list:
+      win.blit(tile[0],tile[1])
+      
+        
+class Player(pygame.sprite.Sprite):
+  def __init__(self,x,y):
+    super(Player,self).__init__()
+    self.images_right = []
+    self.images_left = []
+    self.index = 0
+    self.counter = 0
+    self.direction = 0
+    for i in range(0,3):
+      img = pygame.image.load(f'/storage/emulated/0/Download/platformer/tiles/tile_004{i}.png')
+      img = pygame.transform.scale(img,(60,60))
+      self.images_right.append(img)
+      img_l = pygame.transform.flip(img,True,False)
+      self.images_left.append(img_l)
+    self.image = self.images_right[self.index]
+    self.rect = self.image.get_rect()
+    self.rect.x = x
+    self.rect.y = y
+    
+    
+  def update(self,move_left,move_right,move_up,move_down):
+    if move_right:
+      self.rect.x += 5
+      self.counter += 2
+      self.direction = 1
+    if move_left:
+      self.rect.x -= 5
+      self.counter += 2
+      self.direction = -1
+    if move_down:
+      self.rect.y += 5
+      self.counter += 2
+    if move_up:
+      self.rect.y -= 5  
+      self.counter += 2
+      
+    #animation
+    
+    if self.counter >= 10:
+      self.counter = 0
+      self.index += 1
+      if self.index >= len(self.images_right):
+        self.index = 0
+    self.image = self.images_right[self.index]
+    
+    
+  def draw(self,win):
+    win.blit(self.image,self.rect)
+  
+    
+      
+        
+world_data = [
+[1,1,1,1,1,1,1,1],
+[1,1,1,1,1,1,1,1],
+[1,1,1,1,1,1,1,1],
+[1,1,1,1,1,1,1,1],
+[1,1,1,1,1,1,1,1],
+[1,1,1,1,1,1,1,1],
+[1,1,1,1,1,1,1,1],
+[1,1,1,1,1,1,1,1],
+[1,1,1,1,1,1,1,1],
+[1,1,1,1,1,1,1,1],
+[0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0],
+]
+
+#variables
+world = World(world_data)
+p = Player(50,50)
+enemy_group = pygame.sprite.Group()
+bullet_group = pygame.sprite.Group()
+l_btn = Button(30,1030,l,1.5)
+r_btn = Button(290,1030,r,1.5)
+u_btn = Button(160,900,u,1.5)
+d_btn = Button(160,1150,d,1.5)
+f_btn = Button(450,1150,f,1.5)
+while True:
+  #collision from bullet
+  for b in bullet_group:
+    if pygame.sprite.spritecollide(b,enemy_group,True):
+      pass
+  #player direction
+  if p.direction == 1:
+    p.image = p.images_right[p.index]
+  if p.direction == -1:
+    p.image = p.images_left[p.index]
+  
+  
+  win.fill((0,0,0))
+  
+  world.draw()
+  p.draw(win)
+  p.update(move_left,move_right,move_up,move_down)
+  
+  
+  #enemy formation
+  current_time = pygame.time.get_ticks()
+  delta_time = current_time - start_time
+  if delta_time >= enemy_frequency:
+    v = random.randint(1,3)
+    y = random.randint(0,1100)
+    e = Enemy(0,y,v)
+    enemy_group.add(e)
+    start_time = current_time
+  bullet_group.draw(win) 
+  bullet_group.update(p)
+  enemy_group.draw(win)
+  enemy_group.update(p)
+  if f_btn.draw(win):
+    x,y = p.rect.x,p.rect.y
+    b = Bullet(x+15,y+17)
+    bullet_group.add(b)
+  if l_btn.draw(win):
+    move_left = True
+  else:
+    move_left = False
+  if r_btn.draw(win):
+    move_right = True
+  else:
+    move_right = False
+  if u_btn.draw(win):
+    move_up = True
+  else:
+    move_up = False
+  if d_btn.draw(win):
+    move_down = True
+  else:
+    move_down = False
+    
+  
+  pygame.display.update() 
+  
+pygame.quit()
