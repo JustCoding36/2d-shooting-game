@@ -1,0 +1,905 @@
+import pygame
+import random
+#Base of game
+pygame.init()
+pygame.mixer.init()
+
+
+SCREEN = WIDTH,HEIGHT = 700,1200
+win = pygame.display.set_mode(SCREEN)
+
+#game pages
+home_page = False
+game_page = True
+end_page = False
+
+k1_com = False
+k2_com = False
+k3_com = False
+#avatar
+avatar = pygame.image.load('/storage/emulated/0/Download/Idle__7__2-removebg-preview.png')
+avatar = pygame.transform.scale(avatar,(50,50))
+
+home_img = pygame.image.load('/storage/emulated/0/Download/home.png') 
+home_img = pygame.transform.scale(home_img,(740,1000))
+
+end_img = pygame.image.load('/storage/emulated/0/Download/end.png') 
+end_img = pygame.transform.scale(end_img,(740,1000))
+
+s = pygame.image.load('/storage/emulated/0/Download/Pixel Art Buttons~2.png')
+#size of tile
+tile_size = 70
+b_move = 9
+
+#variables
+chase_e1 = False
+chase_e2 = False
+chase_e3 = False
+chase_speed = 4
+z_frequency = 10000
+start_time = pygame.time.get_ticks()
+
+#movement 
+move_left = False
+move_right = False
+move_up = False
+move_down = False
+
+l = pygame.image.load('/storage/emulated/0/Download/l.png')
+r = pygame.image.load('/storage/emulated/0/Download/r.png')
+d = pygame.image.load('/storage/emulated/0/Download/d.png')
+u = pygame.image.load('/storage/emulated/0/Download/u.png')
+f = pygame.image.load('/storage/emulated/0/Download/fire.png')
+
+#ZOMBIE
+class Zombie(pygame.sprite.Sprite):
+  def __init__(self,x,y):
+    super(Zombie,self).__init__()
+    self.index = 0
+    self.counter = 0
+    self.images_right = []
+    self.images_left = []
+    self.images_attack = []
+    self.health = 100
+    for i in range(1,11):
+      img = pygame.image.load(f'/storage/emulated/0/Download/zombiefiles/png/male/Walk ({i}).png')
+      img = pygame.transform.scale(img,(50,50))
+      img_l = pygame.transform.flip(img,True,False)
+      self.images_left.append(img_l)
+      self.images_right.append(img)
+    for i in range(1,9):  
+      #attack
+      img = pygame.image.load(f'/storage/emulated/0/Download/zombiefiles/png/male/Attack ({i}).png')
+      img_a = pygame.transform.scale(img,(50,50))
+      self.images_attack.append(img_a)
+      
+    self.image = self.images_right[self.index]
+    self.rect = self.image.get_rect()
+    self.rect.x = x
+    self.rect.y = y
+  
+  def update(self):
+    self.counter += 10
+    if self.counter >= 10:
+      self.counter = 0
+      self.index += 1
+      if self.index >= len(self.images_attack):
+        self.index = 0
+    self.image = self.images_right[self.index]
+   
+  def draw(self,win):
+    win.blit(self.image,self.rect)
+
+
+def health_bar():
+  e1_health = pygame.Rect(e1.rect.x + 10 , e1.rect.y,e1.health,20)
+  pygame.draw.rect(win,(255,0,0),e1_health)
+  e2_health = pygame.Rect(e2.rect.x + 10 , e2.rect.y,e2.health,20)
+  pygame.draw.rect(win,(255,0,0),e2_health)
+  e3_health = pygame.Rect(e3.rect.x + 10 , e3.rect.y,e3.health,20)
+  pygame.draw.rect(win,(255,0,0),e3_health)
+  
+  p_b = pygame.Rect(60,15,300,40)
+  p_health = pygame.Rect(60,15,p.health,40)
+  pygame.draw.rect(win,(255,255,255),p_b) 
+  pygame.draw.rect(win,(0,255,0),p_health) 
+#Ground
+class G(pygame.sprite.Sprite):
+  def __init__(self,x,y):
+    super(G,self).__init__()
+    img = pygame.image.load('/storage/emulated/0/Download/kenneyrpgpack/PNG/rpgTile061.png')
+    self.image = pygame.transform.scale(img,(60,60))
+    self.rect = self.image.get_rect()
+    self.rect.x = x
+    self.rect.y = y
+  
+  def update(self):
+    pass
+   
+  def draw(self,win):
+    win.blit(self.image,self.rect)
+
+#SONIC
+class Sonic(pygame.sprite.Sprite):
+  def __init__(self,x,y):
+    self.index = 0
+    self.counter = 0
+    self.images_right = []
+    super(Sonic,self).__init__()
+    for i in range(0,5):
+      img = pygame.image.load(f'/storage/emulated/0/Download/robotfree/png/objects/Muzzle_00{i}.png')
+      img = pygame.transform.scale(img,(90,100))
+      self.images_right.append(img)
+    self.image = self.images_right[self.index]
+    self.rect = self.image.get_rect()
+    self.rect.x = x
+    self.rect.y = y
+  
+  def update(self):
+    self.counter += 10
+    if self.counter >= 10:
+      self.counter = 0
+      self.index += 1
+      if self.index >= len(self.images_right):
+        self.kill()
+        self.index = 0
+    self.image = self.images_right[self.index]
+   
+  def draw(self,win):
+    win.blit(self.image,self.rect)
+    
+    
+#BULLET
+class Bullet(pygame.sprite.Sprite):
+  def __init__(self,x,y):
+    super(Bullet,self).__init__()
+    self.image = pygame.image.load('/storage/emulated/0/Download/robotfree/png/objects/Bullet_000.png')
+    self.image = pygame.transform.scale(self.image,(20,20))
+    self.rect = self.image.get_rect()
+    self.rect.x = x
+    self.rect.y = y
+    
+  def update(self,p):
+    if p.direction == 1:
+      self.rect.x += 40
+    elif p.direction == -1:
+      self.rect.x -= 40
+     
+    #kill bullets
+    if self.rect.left >= 650:
+      self.kill()
+    if self.rect.right <= 0:
+      self.kill()
+  def draw(self,win):
+    win.blit(self.image,self.rect)
+    
+    
+class Enemy(pygame.sprite.Sprite):
+  def __init__(self,x,y,type):
+    super(Enemy,self).__init__()
+    self.direction = 0
+    self.index = 0
+    self.counter = 0
+    self.images_left = []
+    self.images_right = []
+    self.images_dying = []
+    self.images_attackR = []
+    self.health = 100
+    if type == 1:
+      for i in range(0,10):
+        img = pygame.image.load(f'/storage/emulated/0/RunningG1/0_Golem_Running_00{i}.png')
+        img = pygame.transform.scale(img,(120,150))
+        img_l = pygame.transform.flip(img,True,False)
+        self.images_left.append(img_l)
+        self.images_right.append(img)
+        self.image = self.images_right[self.index]
+        
+        #attack
+        img = pygame.image.load(f'/storage/emulated/0/SlashingG1/0_Golem_Slashing_00{i}.png')
+        img_attack_r = pygame.transform.scale(img,(120,150))
+        self.images_attackR.append(img_attack_r)
+        
+        #dying
+        img = pygame.image.load(f'/storage/emulated/0/DyingG1/0_Golem_Dying_00{i}.png')
+        img_d = pygame.transform.scale(img,(120,150))
+        self.images_dying.append(img_d)
+        
+        
+        
+    if type == 2:
+      for i in range(0,10):
+        img = pygame.image.load(f'/storage/emulated/0/RunningG2/0_Golem_Running_00{i}.png')
+        img = pygame.transform.scale(img,(120,150))
+        img_l = pygame.transform.flip(img,True,False)
+        self.images_left.append(img_l)
+        self.images_right.append(img)
+        self.image = self.images_right[self.index]
+        
+        #attack
+        img = pygame.image.load(f'/storage/emulated/0/SlashingG2/0_Golem_Slashing_00{i}.png')
+        img_attack_r = pygame.transform.scale(img,(120,150))
+        self.images_attackR.append(img_attack_r)
+        
+        #dying
+        img = pygame.image.load(f'/storage/emulated/0/DyingG2/0_Golem_Dying_00{i}.png')
+        img_d = pygame.transform.scale(img,(120,150))
+        self.images_dying.append(img_d)
+        
+    if type == 3:
+      for i in range(1,10):
+        img = pygame.image.load(f'/storage/emulated/0/RunningG3/0_Golem_Running_00{i}.png')
+        img = pygame.transform.scale(img,(120,150))
+        img_l = pygame.transform.flip(img,True,False)
+        self.images_left.append(img_l)
+        self.images_right.append(img)
+        self.image = self.images_right[self.index]
+        
+        #attack
+        img = pygame.image.load(f'/storage/emulated/0/SlashingG3/0_Golem_Slashing_00{i}.png')
+        img_attack_r = pygame.transform.scale(img,(120,150))
+        self.images_attackR.append(img_attack_r)
+        
+        img = pygame.image.load(f'/storage/emulated/0/DyingG3/0_Golem_Dying_00{i}.png')
+        img_d = pygame.transform.scale(img,(120,150))
+        self.images_dying.append(img_d)
+        
+        
+    self.rect = self.image.get_rect()
+    self.rect.x = x
+    self.rect.y = y
+  
+  def update(self):
+    #animation 
+    
+    if self.counter >= 10:
+      self.counter = 0
+      self.index += 1
+      if self.index >= len(self.images_right):
+        self.index = 0
+    self.image = self.images_right[self.index]
+   
+  def draw(self,win):
+    win.blit(self.image,self.rect)
+
+#keys
+class Key(pygame.sprite.Sprite):
+  def __init__(self,x,y):
+    super(Key,self).__init__()
+    img = pygame.image.load('/storage/emulated/0/Download/kenneyrpgpack/PNG/rpgTile164.png')
+    self.image = pygame.transform.scale(img,(90,90))
+    self.rect = self.image.get_rect()
+    self.rect.x = x
+    self.rect.y = y
+  
+  def update(self):
+    pass
+   
+  def draw(self,win):
+    win.blit(self.image,self.rect)
+  
+
+#button class
+class Button():
+	def __init__(self, x, y, image, scale):
+		width = image.get_width()
+		height = image.get_height()
+		self.image = pygame.transform.scale(image, (int(width * scale), int(height * scale)))
+		self.rect = self.image.get_rect()
+		self.rect.topleft = (x, y)
+		
+
+	def draw(self, surface):
+		action = False
+		#get mouse position
+		pos = pygame.mouse.get_pos()
+
+		#check mouseover and clicked conditions
+		if self.rect.collidepoint(pos):
+			if pygame.mouse.get_pressed()[0] == 1:
+				action = True
+
+		
+
+		#draw button on screen
+		surface.blit(self.image, (self.rect.x, self.rect.y))
+
+		return action
+
+
+#PLAYER
+class Player(pygame.sprite.Sprite):
+  def __init__(self,x,y):
+    super(Player,self).__init__()
+    self.images_right = []
+    self.images_left = []
+    self.images_idel = []
+    self.index = 0
+    self.counter = 0
+    self.direction = 0
+    self.health = 300
+    for i in range(1,9):
+      img = pygame.image.load(f'/storage/emulated/0/Download/robotfree/png/Run ({i}).png')
+      img = pygame.transform.scale(img,(70,70))
+      self.images_right.append(img)
+      img_l = pygame.transform.flip(img,True,False)
+      self.images_left.append(img_l)
+      img_i = pygame.image.load(f'/storage/emulated/0/Download/robotfree/png/Idle ({i}).png')
+      img_i = pygame.transform.scale(img_i,(70,70))
+      self.images_idel.append(img_i)
+    self.image = self.images_right[self.index]
+    self.rect = self.image.get_rect()
+    self.rect.x = x
+    self.rect.y = y
+    
+  def update(self):
+    #animation 
+    if self.counter >= 10:
+      self.counter = 0
+      self.index += 1
+      if self.index >= len(self.images_right):
+        self.index = 0
+    self.image = self.images_right[self.index]
+    
+    
+  def move(self,move_left,move_right,move_up,move_down,world,key,key2,key3,e1,e2,e3,g1,g2,g3,z_group): 
+  
+    dx = 0
+    dy = 0
+    
+    
+    #player movement
+    if move_right:
+      self.counter += 8
+      self.direction = 1
+      key.rect.x -= b_move
+      key2.rect.x -= b_move
+      key3.rect.x -= b_move
+      e1.rect.x -= b_move
+      e2.rect.x -= b_move
+      e3.rect.x -= b_move
+      g1.rect.x -= b_move
+      g2.rect.x -= b_move
+      g3.rect.x -= b_move
+      for z in z_group:
+        z.rect.x -= b_move
+      for tile in world.tile_list:
+        tile[1][0] -= b_move
+      for tile in w.tile_list:
+        tile[1][0] -= b_move
+    if move_left:
+      self.counter += 8
+      self.direction = -1
+      key.rect.x += b_move
+      key2.rect.x += b_move
+      key3.rect.x += b_move
+      e1.rect.x += b_move
+      e2.rect.x += b_move
+      e3.rect.x += b_move
+      g1.rect.x += b_move
+      g2.rect.x += b_move
+      g3.rect.x += b_move
+      for z in z_group:
+        z.rect.x += b_move
+      for tile in world.tile_list:
+        tile[1][0] += b_move
+      for tile in w.tile_list:
+        tile[1][0] += b_move
+        
+    if move_down:
+      self.counter += 8
+      key.rect.y -= b_move
+      key2.rect.y -= b_move
+      key3.rect.y -= b_move
+      e1.rect.y -= b_move
+      e2.rect.y -= b_move
+      e3.rect.y -= b_move
+      g1.rect.y -= b_move
+      g2.rect.y -= b_move
+      g3.rect.y -= b_move
+      for z in z_group:
+        z.rect.y -= b_move
+      for tile in world.tile_list:
+        tile[1][1] -= b_move
+      for tile in w.tile_list:
+        tile[1][1] -= b_move
+    if move_up:
+      self.counter += 8
+      key.rect.y += b_move
+      key2.rect.y += b_move
+      key3.rect.y += b_move
+      e1.rect.y += b_move
+      e2.rect.y += b_move
+      e3.rect.y += b_move
+      g1.rect.y += b_move
+      g2.rect.y += b_move
+      g3.rect.y += b_move
+      for z in z_group:
+        z.rect.y += b_move
+      for tile in world.tile_list:
+        tile[1][1] += b_move
+      for tile in w.tile_list:
+        tile[1][1] += b_move
+      
+      
+    self.rect.x += dx
+    self.rect.y += dy
+    
+    #boundry
+    
+    
+    
+  def draw(self,win):
+    win.blit(self.image,self.rect)
+
+
+#WORLD
+class World():
+  def __init__(self,data):
+    self.tile_list = []
+    
+    
+    #load images
+    dirt_img = pygame.image.load('/storage/emulated/0/Download/kenneyrpgpack/PNG/rpgTile024.png')
+    doar_img = pygame.image.load('/storage/emulated/0/Download/kenneyrpgpack/PNG/rpgTile223.png')
+    wall_img = pygame.image.load('/storage/emulated/0/Download/kenneyrpgpack/PNG/rpgTile133.png')
+    grass_img = pygame.image.load('/storage/emulated/0/Download/kenneyrpgpack/PNG/rpgTile019.png')
+    bush_img = pygame.image.load('/storage/emulated/0/Download/kenneyrpgpack/PNG/rpgTile159.png')
+    tree_img = pygame.image.load('/storage/emulated/0/Download/kenneyrpgpack/PNG/rpgTile195.png')
+    treetop_img = pygame.image.load('/storage/emulated/0/Download/kenneyrpgpack/PNG/rpgTile175.png')
+    str_img = pygame.image.load('/storage/emulated/0/Download/kenneyrpgpack/PNG/rpgTile030.png')
+    cur_img = pygame.image.load('/storage/emulated/0/Download/kenneyrpgpack/PNG/rpgTile012.png')
+    cur2_img = pygame.image.load('/storage/emulated/0/Download/kenneyrpgpack/PNG/rpgTile046.png')
+    strU_img = pygame.image.load('/storage/emulated/0/Download/kenneyrpgpack/PNG/rpgTile011.png')
+    curL_img = pygame.image.load('/storage/emulated/0/Download/kenneyrpgpack/PNG/rpgTile010.png')
+    curR_img = pygame.image.load('/storage/emulated/0/Download/kenneyrpgpack/PNG/rpgTile012.png')
+    strL_img = pygame.image.load('/storage/emulated/0/Download/kenneyrpgpack/PNG/rpgTile028.png')
+    strD_img = pygame.image.load('/storage/emulated/0/Download/kenneyrpgpack/PNG/rpgTile045.png')
+    
+    row_count = 0
+    for row in data:
+      col_count = 0
+      for tile in row:
+        if tile == 1:
+          img = pygame.transform.scale(dirt_img,(tile_size,tile_size))
+          img_rect = img.get_rect()
+          img_rect.x = col_count*tile_size
+          img_rect.y = row_count*tile_size
+          tile = (img,img_rect)
+          self.tile_list.append(tile)
+        
+        if tile == 2:
+          img = pygame.transform.scale(doar_img,(tile_size,tile_size))
+          img_rect = img.get_rect()
+          img_rect.x = col_count*tile_size
+          img_rect.y = row_count*tile_size
+          tile = (img,img_rect)
+          self.tile_list.append(tile)
+          
+        if tile == 3:
+          img = pygame.transform.scale(wall_img,(tile_size,tile_size))
+          img_rect = img.get_rect()
+          img_rect.x = col_count*tile_size
+          img_rect.y = row_count*tile_size
+          tile = (img,img_rect)
+          self.tile_list.append(tile)
+          
+        if tile == 4:
+          img = pygame.transform.scale(grass_img,(tile_size,tile_size))
+          img_rect = img.get_rect()
+          img_rect.x = col_count*tile_size
+          img_rect.y = row_count*tile_size
+          tile = (img,img_rect)
+          self.tile_list.append(tile)
+          
+        if tile == 5:
+          img = pygame.transform.scale(bush_img,(tile_size,tile_size))
+          img_rect = img.get_rect()
+          img_rect.x = col_count*tile_size
+          img_rect.y = row_count*tile_size
+          tile = (img,img_rect)
+          self.tile_list.append(tile)
+          
+        if tile == 6:
+          img = pygame.transform.scale(tree_img,(tile_size,tile_size))
+          img_rect = img.get_rect()
+          img_rect.x = col_count*tile_size
+          img_rect.y = row_count*tile_size
+          tile = (img,img_rect)
+          self.tile_list.append(tile)
+        
+        if tile == 7:
+          img = pygame.transform.scale(treetop_img,(tile_size,tile_size))
+          img_rect = img.get_rect()
+          img_rect.x = col_count*tile_size
+          img_rect.y = row_count*tile_size
+          tile = (img,img_rect)
+          self.tile_list.append(tile)
+          
+        if tile == 8:
+          img = pygame.transform.scale(str_img,(tile_size,tile_size))
+          img_rect = img.get_rect()
+          img_rect.x = col_count*tile_size
+          img_rect.y = row_count*tile_size
+          tile = (img,img_rect)
+          self.tile_list.append(tile)
+          
+        
+        if tile == 9:
+          img = pygame.transform.scale(cur_img,(tile_size,tile_size))
+          img_rect = img.get_rect()
+          img_rect.x = col_count*tile_size
+          img_rect.y = row_count*tile_size
+          tile = (img,img_rect)
+          self.tile_list.append(tile)
+          
+        if tile == 10:
+          img = pygame.transform.scale(cur2_img,(tile_size,tile_size))
+          img_rect = img.get_rect()
+          img_rect.x = col_count*tile_size
+          img_rect.y = row_count*tile_size
+          tile = (img,img_rect)
+          self.tile_list.append(tile)
+          
+        if tile == 11:
+          img = pygame.transform.scale(strU_img,(tile_size,tile_size))
+          img_rect = img.get_rect()
+          img_rect.x = col_count*tile_size
+          img_rect.y = row_count*tile_size
+          tile = (img,img_rect)
+          self.tile_list.append(tile)
+          
+        if tile == 12:
+          img = pygame.transform.scale(curL_img,(tile_size,tile_size))
+          img_rect = img.get_rect()
+          img_rect.x = col_count*tile_size
+          img_rect.y = row_count*tile_size
+          tile = (img,img_rect)
+          self.tile_list.append(tile)
+          
+        if tile == 13:
+          img = pygame.transform.scale(curR_img,(tile_size,tile_size))
+          img_rect = img.get_rect()
+          img_rect.x = col_count*tile_size
+          img_rect.y = row_count*tile_size
+          tile = (img,img_rect)
+          self.tile_list.append(tile)
+          
+        if tile == 14:
+          img = pygame.transform.scale(strL_img,(tile_size,tile_size))
+          img_rect = img.get_rect()
+          img_rect.x = col_count*tile_size
+          img_rect.y = row_count*tile_size
+          tile = (img,img_rect)
+          self.tile_list.append(tile)
+          
+        if tile == 15:
+          img = pygame.transform.scale(strD_img,(tile_size,tile_size))
+          img_rect = img.get_rect()
+          img_rect.x = col_count*tile_size
+          img_rect.y = row_count*tile_size
+          tile = (img,img_rect)
+          self.tile_list.append(tile)
+            
+        col_count += 1
+      row_count += 1
+      
+      
+  def draw(self,win):
+    for tile in self.tile_list:
+      win.blit(tile[0],tile[1])
+      
+
+
+#DATA
+world_data = [
+[0,0,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,0],
+[0,8,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,14],
+[0,8,4,4,4,4,4,4,4,4,4,4,4,4,1,4,4,4,4,14],
+[0,8,4,4,1,4,4,4,4,4,4,4,4,4,1,4,4,4,4,14],
+[0,8,4,4,1,1,1,1,1,1,1,1,1,1,1,4,4,4,4,14],
+[0,8,4,4,1,4,4,4,4,4,4,4,4,4,1,4,4,4,4,14],
+[0,8,4,4,4,4,4,4,4,4,4,4,4,4,1,4,4,4,4,14],
+[0,8,4,4,4,4,4,4,4,4,4,4,4,4,1,4,4,4,4,14],
+[0,8,4,4,4,4,4,4,4,4,4,4,4,4,1,4,4,4,4,14],
+[0,8,4,4,4,4,4,4,4,4,4,4,4,4,1,4,4,4,4,14],
+[0,8,4,4,4,4,4,4,4,4,4,4,4,4,1,4,4,4,4,14],
+[0,8,4,4,1,1,1,1,1,1,1,1,1,1,1,1,4,4,4,14],
+[0,0,9,4,1,4,4,4,4,4,4,4,4,4,4,1,1,1,1,14],
+[0,0,8,4,1,1,1,4,4,4,4,4,4,4,4,4,4,4,12],
+[0,0,8,4,4,4,1,4,4,4,4,4,4,4,4,4,4,4,14],
+[0,0,8,4,4,4,1,1,1,1,1,4,4,4,4,4,4,4,14],
+[0,0,8,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,14],
+[0,0,0,9,4,4,4,4,12,11,11,11,13,4,4,4,4,4,14],
+[0,0,0,8,11,11,11,11,0,0,0,0,0,11,11,11,11,11,0],
+]
+
+
+world_data2 = [
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,7,0,0,0,0,0,0,5,0,0,0,0,0,0,0,0],
+[0,0,5,0,0,0,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,7,0,0,0,0,0,5,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,7,0,0,0,0,0,0,0,0,0,5,0,0,0,0,7,0,0,0,0],
+[0,0,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,7,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,6,0,0,0,7,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,5,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+]
+#GAME VARIABLES
+world = World(world_data)
+w = World(world_data2)
+p = Player(300,500)
+key = Key(280,200)
+key2 = Key(1140,100)
+key3 = Key(600,1080)
+e1 = Enemy(280,250,1)
+e2 = Enemy(1140,150,2)
+e3 = Enemy(600,1020,3)
+l_btn = Button(30,1030,l,1.5)
+r_btn = Button(290,1030,r,1.5)
+u_btn = Button(160,900,u,1.5)
+d_btn = Button(160,1150,d,1.5)
+f_btn = Button(500,1000,f,2)
+s_btn = Button(200,900,s,5)
+bullet_group = pygame.sprite.Group()
+z_group = pygame.sprite.Group()
+s = Sonic(p.rect.x-10,p.rect.y-20)
+
+g1 = G(1200,700)
+g2 = G(1200,800)
+g3 = G(1200,900)
+
+#########################################################################################################################
+while True:
+  
+  if end_page:
+    win.fill((0,0,0))
+    win.blit(end_img,(0,120))
+    
+  if home_page:
+    win.blit(home_img,(0,120))
+    if s_btn.draw(win):
+      home_page = False
+      game_page = True
+    
+  if game_page:
+    win.fill((21,229,255))
+         
+    world.draw(win)
+    w.draw(win)
+    
+    if k1_com == True and k2_com == True and k3_com == True:
+      end_page = True
+      game_page = False
+    
+    #zombie chase and attack
+    for z in z_group:
+      if z.rect.colliderect(p):
+        p.health -= 1
+        z.image = z.images_attack[z.index]
+      if z.health <= 0:
+        z.kill()
+      if pygame.sprite.groupcollide(bullet_group,z_group,True,False):
+        z.health -= 10
+      if z.rect.centerx > p.rect.centerx:
+        z.rect.x -= 2
+        z.image = z.images_left[z.index]
+      if z.rect.centerx < p.rect.centerx:
+        z.rect.x += 2
+      if z.rect.centery > p.rect.centery:
+        z.rect.y -= 2
+      if z.rect.centery < p.rect.centery:
+        z.rect.y += 2
+    
+    #Zombie Formation
+    current_time = pygame.time.get_ticks()
+    delta_time = current_time - start_time
+    if delta_time >= z_frequency:
+      y = random.randint(0,1100)
+      x = random.randint(0,600)
+      z = Zombie(x,y)
+      z_group.add(z)
+      start_time = current_time
+      
+      
+    #player and enemy collision
+    if p.rect.colliderect(e1.rect):
+      e1.image = e1.images_attackR[e1.index]
+      p.health -= 1.5
+    if p.rect.colliderect(e2.rect):
+      e2.image = e2.images_attackR[e2.index]
+      p.health -= 1.5
+    if p.rect.colliderect(e3.rect):
+      e3.image = e3.images_attackR[e3.index]
+      p.health -= 1.5
+      
+    
+    #DEAD ENEMY
+    if e1.health <= 0:
+      e1.image = e1.images_dying[e1.index]
+      chase_e1 = False  
+    if e2.health <= 0:
+      e2.image = e2.images_dying[e2.index]
+      chase_e3 = False
+    if e3.health <= 0:
+      e3.image = e3.images_dying[e3.index]
+      chase_e3 = False
+    
+  
+   # collision with keys  
+    if g1.rect.colliderect(key.rect):
+      g1.image = key.image
+      key.image = pygame.transform.scale(key.image,(10,10))
+      pygame.mixer.music.load('/storage/emulated/0/Download/success.mp3')
+      pygame.mixer.music.play()
+      k1_com = True
+    if g2.rect.colliderect(key2.rect):
+      g2.image = key.image
+      key2.image = pygame.transform.scale(key.image,(10,10))
+      pygame.mixer.music.load('/storage/emulated/0/Download/success.mp3')
+      k2_com = True
+      pygame.mixer.music.play()
+    if g3.rect.colliderect(key3.rect):
+      g3.image = key.image
+      key3.image = pygame.transform.scale(key.image,(10,10))
+      pygame.mixer.music.load('/storage/emulated/0/Download/success.mp3')
+      k3_com = True
+      pygame.mixer.music.play()
+      
+    
+    #collision with bullet
+    for b in bullet_group:
+      if b.rect.colliderect(e1.rect):
+        b.kill()
+        e1.health -= 0.6
+      if b.rect.colliderect(e2.rect):
+        b.kill()
+        e2.health -= 0.6
+      if b.rect.colliderect(e3.rect):
+        b.kill()
+        e3.health -= 0.6
+        
+        
+    #player key3
+    if e3.health > 0:
+      if p.rect.colliderect(key3.rect):
+        chase_e3 = True
+        key3.rect.x = p.rect.x
+        key3.rect.y = p.rect.y - 30
+        e3.counter += 4
+        if delta_time < 1000:
+          pygame.mixer.music.load('/storage/emulated/0/Download/monster.mp3')
+          pygame.mixer.music.play()
+      if chase_e3:
+        if e3.rect.centerx > p.rect.centerx:
+          e3.rect.x -= chase_speed - 1
+          e3.image = e3.images_left[e3.index]
+        if e3.rect.centerx < p.rect.centerx:
+          e3.rect.x += chase_speed - 1
+        if e3.rect.centery > p.rect.centery:
+          e3.rect.y -= chase_speed - 1
+        if e3.rect.centery < p.rect.centery:
+          e3.rect.y += chase_speed - 1
+    
+    #player key2
+    if e2.health > 0:
+      if p.rect.colliderect(key2.rect):
+        chase_e2 = True
+        key2.rect.x = p.rect.x
+        key2.rect.y = p.rect.y - 30
+        e2.counter += 4
+        if delta_time < 1000:
+          pygame.mixer.music.load('/storage/emulated/0/Download/monster.mp3')
+          pygame.mixer.music.play()
+      if chase_e2:
+        if e2.rect.centerx > p.rect.centerx:
+          e2.rect.x -= chase_speed - 2
+          e2.image = e2.images_left[e2.index]
+        if e2.rect.centerx < p.rect.centerx:
+          e2.rect.x += chase_speed - 2
+        if e2.rect.centery > p.rect.centery:
+          e2.rect.y -= chase_speed - 2
+        if e2.rect.centery < p.rect.centery:
+          e2.rect.y += chase_speed - 2
+    
+    #player key1
+    if e1.health > 0:
+      if p.rect.colliderect(key.rect):
+        chase_e1 = True
+        key.rect.x = p.rect.x
+        key.rect.y = p.rect.y - 30
+        e1.counter += 4
+        if delta_time < 1000:
+          pygame.mixer.music.load('/storage/emulated/0/Download/monster.mp3')
+          pygame.mixer.music.play()
+      if chase_e1:
+        if e1.rect.centerx > p.rect.centerx:
+          e1.rect.x -= chase_speed
+          e1.image = e1.images_left[e1.index]
+        if e1.rect.centerx < p.rect.centerx:
+          e1.rect.x += chase_speed
+        if e1.rect.centery > p.rect.centery:
+          e1.rect.y -= chase_speed
+        if e1.rect.centery < p.rect.centery:
+          e1.rect.y += chase_speed 
+      
+    
+   
+    
+    key.draw(win)
+    key2.draw(win)
+    key3.draw(win)
+    e1.draw(win)
+    e1.update() 
+    
+    e2.draw(win)
+    e2.update()
+    e3.draw(win)
+    e3.update()
+    p.draw(win)
+    p.update()
+    p.move(move_left,move_right,move_up,move_down,world,key,key2,key3,e1,e2,e3,g1,g2,g3,z_group)
+    
+    bullet_group.draw(win) 
+    bullet_group.update(p)
+    z_group.draw(win) 
+    z_group.update()
+    g1.draw(win)
+    g2.draw(win)
+    g3.draw(win)
+    
+    health_bar()
+    
+    
+    
+    #player direction
+    if p.direction == 1:
+      p.image = p.images_right[p.index]
+    if p.direction == -1:
+      p.image = p.images_left[p.index]  
+    if p.direction == 0:
+      p.image = p.images_idel[p.index]
+     
+    #MOVEMENT BUTTONS 
+    
+    if f_btn.draw(win):
+      s.draw(win)
+      s.update()
+      x,y = p.rect.x,p.rect.y
+      b = Bullet(x+20,y+10)
+      bullet_group.add(b)
+      pygame.mixer.music.load('/storage/emulated/0/Download/blaster.mp3')
+      pygame.mixer.music.play()
+      
+    if l_btn.draw(win):
+      move_left = True
+      
+    else:
+      move_left = False
+    if r_btn.draw(win):
+      move_right = True
+      
+    else:
+      move_right = False
+    if u_btn.draw(win):
+      move_up = True
+      
+    else:
+      move_up = False
+    if d_btn.draw(win):
+      move_down = True
+      
+    else:
+      move_down = False
+    win.blit(avatar,(20,10)) 
+  pygame.display.update()
+pygame.quit()
